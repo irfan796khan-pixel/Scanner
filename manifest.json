@@ -1,0 +1,11 @@
+{
+  "name": "Route Sheets",
+  "short_name": "Sheets",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F5F3EE",
+  "theme_color": "#16302F",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
