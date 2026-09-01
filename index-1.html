@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16302F">
+<link rel="manifest" href="manifest.json">
+<title>Route Sheets</title>
+<style>
+  :root{ --ink:#16302F; --paper:#F5F3EE; --edge:rgba(22,48,47,.16);
+         --warn:#B4531F; --wait:#D9C97E; --panel:#fff; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       padding-bottom:32px;-webkit-text-size-adjust:100%}
+  header{position:sticky;top:0;z-index:20;background:rgba(245,243,238,.96);
+         backdrop-filter:blur(8px);border-bottom:1px solid var(--edge);
+         padding:12px 16px;display:flex;justify-content:space-between;align-items:baseline}
+  h1{font-size:17px;margin:0;letter-spacing:-.01em}
+  .count{font-size:13px;opacity:.6;font-variant-numeric:tabular-nums}
+  .wrap{padding:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tile{position:relative;border-radius:12px;padding:22px 12px;text-align:center;
+        border:1px solid var(--edge);background:var(--panel);overflow:hidden}
+  .tile.dark{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .tile b{display:block;font-size:15px}
+  .tile span{font-size:11px;opacity:.65}
+  .tile input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0}
+  .row{display:flex;gap:8px;margin-top:8px}
+  button{font:inherit;border-radius:10px;border:1px solid var(--edge);
+         background:var(--panel);color:var(--ink);padding:9px 12px;flex:1}
+  button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);
+                 padding:15px;font-weight:600;width:100%}
+  button:disabled{opacity:.4}
+  #stage{position:relative;margin-top:12px;display:none}
+  #stage video{width:100%;height:44vh;object-fit:cover;border-radius:12px;background:#000}
+  #shutter{position:absolute;inset:0;border-radius:12px}
+  #tally{position:absolute;left:12px;top:12px;background:rgba(245,243,238,.92);
+         border-radius:8px;padding:4px 12px;font-size:19px;font-weight:600;
+         font-variant-numeric:tabular-nums}
+  #torch{position:absolute;right:12px;top:12px;width:auto;flex:none}
+  .msg{margin-top:12px;border:1px solid rgba(180,83,31,.4);background:#FBEDE3;
+       border-radius:10px;padding:9px 12px;font-size:13px}
+  .strip{display:flex;gap:8px;overflow-x:auto;margin-top:16px;padding-bottom:4px}
+  .shot{flex:0 0 auto;width:62px}
+  .shot img{width:62px;height:80px;object-fit:cover;border-radius:8px;
+            border:1px solid var(--edge);display:block}
+  .tag{font-size:10px;text-align:center;border-radius:0 0 8px 8px;margin-top:-16px;
+       position:relative;padding:2px;font-weight:600}
+  .t-done{background:var(--ink);color:var(--paper)}
+  .t-err{background:var(--warn);color:#fff}
+  .t-wait{background:var(--wait)}
+  .tbl{margin-top:16px;overflow-x:auto;border:1px solid var(--edge);
+       border-radius:12px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th{background:#EDE9E1;text-align:left;padding:8px;font-weight:600;white-space:nowrap}
+  td{padding:3px;border-top:1px solid rgba(22,48,47,.09)}
+  td input{border:0;background:transparent;font:inherit;padding:5px;width:118px;
+           border-radius:4px;color:inherit}
+  td input:focus{background:#EDE9E1;outline:0}
+  td input.gap{text-decoration:underline;text-decoration-color:var(--warn);
+               text-decoration-thickness:2px;text-underline-offset:3px}
+  .num input{text-align:right;font-variant-numeric:tabular-nums;width:84px}
+  .bal{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;
+       white-space:nowrap;padding-right:8px}
+  tr.totals{background:#EDE9E1;font-weight:600}
+  tr.totals td{text-align:right;padding:8px}
+  .foot{display:flex;justify-content:space-between;align-items:center;
+        margin-top:12px;font-size:13px;gap:8px}
+  .foot button{flex:none}
+  .off{color:var(--warn)}
+  dialog{border:1px solid var(--edge);border-radius:14px;padding:18px;max-width:340px;
+         background:var(--panel);color:var(--ink)}
+  dialog input{width:100%;padding:10px;border:1px solid var(--edge);border-radius:8px;
+               font:inherit;margin-top:8px}
+  .fine{font-size:12px;opacity:.65;margin-top:10px}
+  pre{font-size:10px;background:var(--panel);border:1px solid var(--edge);
+      border-radius:8px;padding:8px;max-height:190px;overflow:auto;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Route sheets</h1>
+  <span class="count" id="hcount">0 shot · 0 read</span>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <label class="tile dark">
+      <b>Photograph sheets</b><span>opens the camera</span>
+      <input type="file" accept="image/*" capture="environment" multiple id="fCam">
+    </label>
+    <label class="tile">
+      <b>Choose photos</b><span>from the gallery</span>
+      <input type="file" accept="image/*" multiple id="fLib">
+    </label>
+  </div>
+
+  <div class="row">
+    <button id="bLive">Live camera</button>
+    <button id="bBlank">Type a sheet</button>
+    <button id="bUndo">Undo last</button>
+  </div>
+
+  <div id="stage">
+    <video id="vid" playsinline muted></video>
+    <div id="shutter"></div>
+    <div id="tally">0</div>
+    <button id="torch">Torch</button>
+    <div class="row"><button id="bStop">Done</button></div>
+  </div>
+
+  <div class="msg" id="msg" hidden></div>
+  <div class="strip" id="strip"></div>
+
+  <div class="tbl">
+    <table>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <div class="foot">
+    <span id="recon">nothing scanned yet</span>
+    <span>
+      <button id="bCopy">Copy table</button>
+      <button id="bClear">Clear</button>
+    </span>
+  </div>
+
+  <button class="primary" id="bPost" style="margin-top:12px" disabled>Record payments</button>
+
+  <div class="foot" style="justify-content:flex-start">
+    <button id="bKey" style="flex:none">API key</button>
+    <button id="bDebug" style="flex:none">Last response</button>
+  </div>
+  <pre id="dbg" hidden>nothing read yet</pre>
+</div>
+
+<dialog id="keyBox">
+  <b>Anthropic API key</b>
+  <div class="fine">Stored only on this phone. Never committed to the repo, never sent anywhere but api.anthropic.com.</div>
+  <input id="keyIn" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <input id="modelIn" type="text" placeholder="claude-sonnet-5">
+  <div class="row" style="margin-top:12px">
+    <button id="keySave" class="primary" style="padding:10px">Save</button>
+    <button id="keyClose">Close</button>
+  </div>
+</dialog>
+
+<script>
+const FIELDS=[
+ ["store","Store",0],["city","City",0],["invoiceNo","Invoice no",0],["sheetNo","Sheet",0],
+ ["date","Date",0],["invoiceAmount","Invoice amt",1],["returnedItems","Returned items",0],
+ ["returnedValue","Returned val",1],["checkNo","Check no",0],["handwrittenAmount","Collected",1],
+ ["notes","Notes",0],["items","Items",0]];
+
+const PROMPT=`Read this photograph of a wholesale delivery / invoice sheet: a printed invoice with handwriting added on top.
+
+Return RAW JSON ONLY. No prose, no markdown fences.
+If the photo is blank, too blurred, or not an invoice sheet, return exactly: {"found": false}
+
+Otherwise return exactly these keys:
+{"found":true,"store":"","city":"","invoiceNo":"","sheetNo":"","date":"","invoiceAmount":"","returnedItems":"","returnedValue":"","checkNo":"","handwrittenAmount":"","notes":"","items":""}
+
+- store: customer / shop name printed at the top.
+- city: town on the customer address.
+- invoiceNo: the PRINTED invoice number.
+- sheetNo: a HANDWRITTEN number, often circled.
+- date: invoice date as printed.
+- invoiceAmount: printed invoice TOTAL, digits and decimal point only.
+- returnedItems: lines struck through or marked return/credit, comma separated.
+- returnedValue: dollar total of those returned lines, digits only.
+- checkNo: handwritten cheque or money order number.
+- handwrittenAmount: handwritten amount actually collected, digits only.
+- notes: any other handwriting - CASH, PARTIAL, BALANCE, MO, initials.
+- items: ordered item lines condensed onto one comma separated line.
+
+Never invent a value. Use "" for anything not visible.`;
+
+const $=id=>document.getElementById(id);
+const num=v=>{const n=parseFloat(String(v??"").replace(/[^0-9.\-]/g,""));return isNaN(n)?0:n};
+const money=n=>(Math.round(n*100)/100).toFixed(2);
+const bal=r=>num(r.invoiceAmount)-num(r.returnedValue)-num(r.handwrittenAmount);
+const uid=()=>Math.random().toString(36).slice(2);
+const buzz=p=>{try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}};
+
+let shots=[],rows=[],queue=[],active=0,stream=null,track=null,wake=null,torchOn=false;
+const KEY=()=>localStorage.getItem("ak")||"";
+const MODEL=()=>localStorage.getItem("mdl")||"claude-sonnet-5";
+
+function say(t){const m=$("msg");if(!t){m.hidden=true;return}m.textContent=t;m.hidden=false}
+
+/* ---------- image ---------- */
+function encode(src,w,h){
+  const s=Math.min(1,1500/w),c=document.createElement("canvas");
+  c.width=Math.round(w*s);c.height=Math.round(h*s);
+  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
+  x.drawImage(src,0,0,c.width,c.height);
+  const t=document.createElement("canvas");t.width=62;t.height=Math.round(c.height/c.width*62);
+  t.getContext("2d").drawImage(c,0,0,t.width,t.height);
+  return {b64:c.toDataURL("image/jpeg",.72).split(",")[1],thumb:t.toDataURL("image/jpeg",.5)};
+}
+async function decode(f){
+  try{return await createImageBitmap(f,{imageOrientation:"from-image"})}
+  catch(e){return await new Promise((res,rej)=>{const i=new Image();
+    i.onload=()=>res(i);i.onerror=()=>rej(new Error("decode"));i.src=URL.createObjectURL(f)})}
+}
+
+/* ---------- reading ---------- */
+async function read(shot){
+  if(!KEY()){shot.state="error";shot.error="No API key set. Tap API key below.";paint();return}
+  shot.state="reading";paint();
+  let res,data;
+  try{
+    res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{
+      "content-type":"application/json",
+      "x-api-key":KEY(),
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:MODEL(),max_tokens:1000,messages:[{role:"user",content:[
+        {type:"image",source:{type:"base64",media_type:"image/jpeg",data:shot.b64}},
+        {type:"text",text:PROMPT}]}]})});
+  }catch(e){shot.state="error";shot.error="Network blocked: "+(e.message||"fetch failed");paint();return}
+  try{data=await res.json()}
+  catch(e){shot.state="error";shot.error="HTTP "+res.status+" - reply was not JSON";paint();return}
+  if(data.error){shot.state="error";
+    shot.error=(data.error.type||"error")+": "+(data.error.message||"");
+    $("dbg").textContent=JSON.stringify(data).slice(0,900);paint();return}
+  const text=(data.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("\n");
+  $("dbg").textContent=text.slice(0,900);
+  const clean=text.replace(/```json/gi,"").replace(/```/g,"").trim();
+  const a=clean.indexOf("{"),b=clean.lastIndexOf("}");
+  let p=null; if(a>-1&&b>a){try{p=JSON.parse(clean.slice(a,b+1))}catch(e){}}
+  if(!p){shot.state="error";shot.error="Could not parse the read";paint();return}
+  if(p.found===false){shot.state="error";shot.error="Sheet not readable - retake it";paint();return}
+  const row={id:uid(),thumb:shot.thumb},miss=[];
+  FIELDS.forEach(([k])=>{const v=String(p[k]??"").trim();row[k]=v;if(!v)miss.push(k)});
+  row.missing=miss;merge(row);shot.state="done";shot.error="";paint();
+}
+function merge(inc){
+  const key=r=>String(r.invoiceNo||"").trim()
+    ?"i:"+r.invoiceNo.trim().toLowerCase()
+    :"s:"+String(r.store||"").trim().toLowerCase()+"|"+num(r.handwrittenAmount);
+  const i=rows.findIndex(r=>key(r)===key(inc));
+  if(i<0){rows.push(inc);return}
+  FIELDS.forEach(([k])=>{if(!String(rows[i][k]||"").trim()&&String(inc[k]||"").trim())rows[i][k]=inc[k]});
+  rows[i].missing=FIELDS.map(f=>f[0]).filter(k=>!String(rows[i][k]||"").trim());
+}
+function pump(){while(active<2&&queue.length){const s=queue.shift();active++;
+  read(s).catch(()=>{}).finally(()=>{active--;pump()})}}
+function push(s){shots.push(s);queue.push(s);paint();pump()}
+
+async function ingest(files){
+  say("");
+  for(const f of [...files]){
+    try{const b=await decode(f);const w=b.width||b.naturalWidth,h=b.height||b.naturalHeight;
+      const {b64,thumb}=encode(b,w,h);push({id:uid(),b64,thumb,state:"queued",error:""});}
+    catch(e){shots.push({id:uid(),thumb:"",state:"error",
+      error:"Photo would not open (HEIC?). Set the camera to Most Compatible."});paint()}
+  }
+  buzz(25);
+}
+$("fCam").onchange=e=>{ingest(e.target.files);e.target.value=""};
+$("fLib").onchange=e=>{ingest(e.target.files);e.target.value=""};
+
+/* ---------- live camera ---------- */
+$("bLive").onclick=async()=>{
+  say("");
+  if(!navigator.mediaDevices?.getUserMedia){say("No live camera here. Use Photograph sheets.");return}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},
+      width:{ideal:4096},height:{ideal:2160}},audio:false});
+    track=stream.getVideoTracks()[0];
+    $("vid").srcObject=stream;await $("vid").play();
+    $("stage").style.display="block";
+    try{if("wakeLock" in navigator)wake=await navigator.wakeLock.request("screen")}catch(e){}
+  }catch(err){say("Camera refused ("+(err.name||"blocked")+"). Allow camera for this site, then retry.")}
+};
+$("bStop").onclick=()=>{
+  try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}
+  stream=null;track=null;$("stage").style.display="none";
+  try{wake&&wake.release()}catch(e){}wake=null;
+};
+$("shutter").onclick=()=>{
+  const v=$("vid");
+  if(!v.videoWidth){say("No frame yet. Wait a second and tap again.");return}
+  const c=document.createElement("canvas");c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext("2d").drawImage(v,0,0);
+  const {b64,thumb}=encode(c,c.width,c.height);
+  push({id:uid(),b64,thumb,state:"queued",error:""});buzz(30);
+};
+$("torch").onclick=async()=>{
+  if(!track)return;
+  try{await track.applyConstraints({advanced:[{torch:!torchOn}]});torchOn=!torchOn;
+    $("torch").textContent=torchOn?"Torch on":"Torch"}
+  catch(e){say("Torch not supported on this camera.")}
+};
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&stream){
+    const ok=stream.getVideoTracks().some(t=>t.readyState==="live");
+    if(!ok)$("bLive").click(); else if($("vid").paused)$("vid").play().catch(()=>{});
+  }
+});
+
+/* ---------- table ---------- */
+$("bBlank").onclick=()=>{const r={id:uid(),missing:FIELDS.map(f=>f[0])};
+  FIELDS.forEach(([k])=>r[k]="");rows.push(r);paint()};
+$("bUndo").onclick=()=>{rows.pop();shots.pop();buzz(20);paint()};
+$("bClear").onclick=()=>{rows=[];shots=[];queue=[];paint()};
+
+function paint(){
+  const done=rows.length,waiting=shots.filter(s=>s.state==="queued"||s.state==="reading").length;
+  $("hcount").textContent=shots.length+" shot · "+done+" read"+(waiting?" · "+waiting+" working":"");
+  $("tally").textContent=shots.length;
+
+  $("strip").innerHTML=shots.map(s=>{
+    const cls=s.state==="done"?"t-done":s.state==="error"?"t-err":"t-wait";
+    const lbl=s.state==="done"?"read":s.state==="error"?"failed":s.state;
+    return `<div class="shot">${s.thumb?`<img src="${s.thumb}">`:`<div style="height:80px"></div>`}
+      <div class="tag ${cls}">${lbl}</div></div>`}).join("");
+
+  const err=shots.find(s=>s.state==="error");
+  if(err)say(err.error); else if($("msg").textContent.startsWith("Camera refused")===false)say("");
+
+  if(!$("head").children.length){
+    $("head").innerHTML="<th></th>"+FIELDS.map(f=>`<th>${f[1]}</th>`).join("")+"<th>Balance</th>";
+  }
+  $("body").innerHTML = rows.length===0
+    ? `<tr><td colspan="${FIELDS.length+2}" style="text-align:center;padding:34px;opacity:.5">Photograph a sheet and its row lands here.</td></tr>`
+    : rows.map(r=>`<tr><td>${r.thumb?`<img src="${r.thumb}" style="width:30px;height:38px;object-fit:cover;border-radius:4px">`:""}</td>`+
+        FIELDS.map(([k,,n])=>`<td class="${n?'num':''}"><input data-id="${r.id}" data-k="${k}"
+          class="${(r.missing||[]).includes(k)?'gap':''}" value="${(r[k]||"").replace(/"/g,'&quot;')}"></td>`).join("")+
+        `<td class="bal">${money(bal(r))}</td></tr>`).join("")
+      + totalsRow();
+
+  document.querySelectorAll("#body input").forEach(i=>i.oninput=e=>{
+    const r=rows.find(x=>x.id===e.target.dataset.id);
+    r[e.target.dataset.k]=e.target.value;
+    r.missing=(r.missing||[]).filter(m=>m!==e.target.dataset.k);
+    e.target.classList.remove("gap");
+    e.target.closest("tr").querySelector(".bal").textContent=money(bal(r));
+    refreshTotals();
+  });
+
+  const pay=rows.filter(r=>num(r.handwrittenAmount)>0);
+  $("bPost").disabled=pay.length===0;
+  $("bPost").textContent="Record payments"+(pay.length?" ("+pay.length+")":"");
+  const rec=$("recon"),mismatch=shots.length!==rows.length&&waiting===0;
+  rec.textContent=shots.length+" photographed, "+rows.length+" read"+(mismatch?" — check the pile":"");
+  rec.className=mismatch?"off":"";
+}
+function totalsRow(){
+  if(!rows.length)return"";
+  const t=rows.reduce((a,r)=>({i:a.i+num(r.invoiceAmount),v:a.v+num(r.returnedValue),
+    h:a.h+num(r.handwrittenAmount),b:a.b+bal(r)}),{i:0,v:0,h:0,b:0});
+  return `<tr class="totals"><td></td>`+FIELDS.map(([k,,n])=>
+    `<td>${k==="store"?"Totals":n?money(k==="invoiceAmount"?t.i:k==="returnedValue"?t.v:t.h):""}</td>`).join("")
+    +`<td class="bal">${money(t.b)}</td></tr>`;
+}
+function refreshTotals(){const tr=document.querySelector("tr.totals");if(tr)tr.outerHTML=totalsRow()}
+
+function tsv(){
+  return [FIELDS.map(f=>f[1]).concat("Balance").join("\t")]
+    .concat(rows.map(r=>FIELDS.map(([k])=>String(r[k]||"").replace(/[\t\n]/g," "))
+    .concat(money(bal(r))).join("\t"))).join("\n");
+}
+async function copy(text,btn){
+  let ok=false;
+  try{await navigator.clipboard.writeText(text);ok=true}catch(e){}
+  if(!ok){const ta=document.createElement("textarea");ta.value=text;
+    ta.style.position="fixed";ta.style.opacity=0;document.body.appendChild(ta);
+    ta.select();try{ok=document.execCommand("copy")}catch(e){}document.body.removeChild(ta)}
+  const old=btn.textContent;btn.textContent=ok?"Copied":"Copy blocked";
+  setTimeout(()=>btn.textContent=old,1800);
+}
+$("bCopy").onclick=e=>copy(tsv(),e.target);
+$("bPost").onclick=e=>copy("post these\n\n"+tsv(),e.target);
+
+/* ---------- key ---------- */
+$("bKey").onclick=()=>{$("keyIn").value=KEY();$("modelIn").value=MODEL();$("keyBox").showModal()};
+$("keySave").onclick=()=>{
+  localStorage.setItem("ak",$("keyIn").value.trim());
+  localStorage.setItem("mdl",($("modelIn").value.trim()||"claude-sonnet-5"));
+  $("keyBox").close();say("Key saved. Retry any failed sheets.")};
+$("keyClose").onclick=()=>$("keyBox").close();
+$("bDebug").onclick=()=>{const d=$("dbg");d.hidden=!d.hidden};
+
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+if(!KEY())say("Set your API key once, using the button at the bottom, before scanning.");
+paint();
+</script>
+</body>
+</html>
